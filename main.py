@@ -6,6 +6,12 @@ trailing newline.
 """
 
 import os
+import sys
+
+MIN_CHARS = 1
+MAX_CHARS = 200
+DEFAULT_OUTPUT_DIR = "/output"
+OUTPUT_FILENAME = "entry.txt"
 
 ENTRY = (
     "We have all been waiting for someone to say this meeting is pointless, "
@@ -13,16 +19,35 @@ ENTRY = (
 )
 
 
+def validate_entry(text):
+    """Check the entry against the bounty gate; return an error, else None."""
+    if not text or not text.strip():
+        return "entry must not be empty or whitespace only"
+    if "\n" in text or "\r" in text:
+        return "entry must be a single line (no newline characters)"
+    if len(text) < MIN_CHARS or len(text) > MAX_CHARS:
+        return f"entry must be {MIN_CHARS}-{MAX_CHARS} characters, got {len(text)}"
+    try:
+        text.encode("ascii")
+    except UnicodeEncodeError:
+        return "entry must be plain ASCII"
+    return None
+
+
 def main():
-    assert "\n" not in ENTRY and "\r" not in ENTRY, "entry must be one line"
-    assert 1 <= len(ENTRY) <= 200, "entry must be 1-200 characters"
-    assert ENTRY.strip(), "entry must not be only whitespace"
-    ENTRY.encode("ascii")  # entry must be plain ASCII
-    out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
-    os.makedirs(out_dir, exist_ok=True)
-    path = os.path.join(out_dir, "entry.txt")
-    with open(path, "w", encoding="utf-8", newline="") as f:
-        f.write(ENTRY)
+    error = validate_entry(ENTRY)
+    if error:
+        print(f"error: {error}", file=sys.stderr)
+        raise SystemExit(1)
+    out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR", DEFAULT_OUTPUT_DIR)
+    path = os.path.join(out_dir, OUTPUT_FILENAME)
+    try:
+        os.makedirs(out_dir, exist_ok=True)
+        with open(path, "w", encoding="utf-8", newline="") as f:
+            f.write(ENTRY)
+    except OSError as exc:
+        print(f"error: cannot write {path}: {exc}", file=sys.stderr)
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
